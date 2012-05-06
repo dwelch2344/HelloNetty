@@ -19,7 +19,7 @@ public class UserController {
 	}
 	
 	@RequestMapping("/list")
-	public void buh(){
+	public void buh(SomeBean bean){
 		System.out.println("Users controller called!");
 	}
 }
