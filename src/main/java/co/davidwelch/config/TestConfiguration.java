@@ -1,11 +1,9 @@
 package co.davidwelch.config;
 
-import java.net.InetSocketAddress;
-import java.util.Scanner;
 import java.util.concurrent.Executors;
 
-import org.jboss.netty.bootstrap.Bootstrap;
 import org.jboss.netty.bootstrap.ServerBootstrap;
+import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,6 +13,8 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.io.support.ResourcePatternResolver;
 
 import co.davidwelch.cdi.AnnotationProcessor;
+import co.davidwelch.netty.mvc.support.MethodMappingResolver;
+import co.davidwelch.netty.mvc.support.SpringHttpRequestHandler;
 import co.davidwelch.test.netty.HttpServerPipelineFactory;
 import co.davidwelch.test.netty.SomeBean;
 
@@ -36,7 +36,13 @@ public class TestConfiguration {
 	}
 	
 	@Bean
-	public ServerBootstrap getBootstrap(){
+	public ChannelHandler getHandler(MethodMappingResolver resolver){
+		//return new HttpRequestHandler();
+		return new SpringHttpRequestHandler(resolver);
+	}
+	
+	@Bean
+	public ServerBootstrap getBootstrap(ChannelHandler handler){
 		System.out.println("Starting");
 		// Configure the server.
 		ServerBootstrap bootstrap = new ServerBootstrap(
@@ -46,7 +52,7 @@ public class TestConfiguration {
 
 		System.out.println("Setting pipeline Factory");
 		// Set up the event pipeline factory.
-		bootstrap.setPipelineFactory(new HttpServerPipelineFactory());
+		bootstrap.setPipelineFactory(new HttpServerPipelineFactory(handler));
 
 //		System.out.println("Binding");
 //		// Bind and start to accept incoming connections.

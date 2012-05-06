@@ -5,8 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponse;
+import co.davidwelch.netty.mvc.ModelAndView;
 
 public class MethodMappingResolver {
 
@@ -17,9 +16,9 @@ public class MethodMappingResolver {
 		this.mappings = mappings;
 	}
 	
-	public void invoke(String path){
+	public ModelAndView invoke(String path, List<Object> intrinsicParameters){
 		MethodMapping mapping = mappings.get(path);
-		if(mapping == null) throw new IllegalStateException("Unhandled route");
+		if(mapping == null) throw new IllegalStateException("Unhandled route:" + path);
 		
 		Method method = mapping.getMethod();
 		Object handler = mapping.getHandler();
@@ -31,12 +30,21 @@ public class MethodMappingResolver {
 		StringBuilder sb = new StringBuilder();
 		for(Class<?> param : paramTypes){
 			sb.append(param.getSimpleName()).append(", ");
-			addParam(params, param);
+			addParam(params, param, intrinsicParameters);
 		}
 		System.out.println("Parameter types: " + sb.toString());
 		
 		try {
-			method.invoke(handler, params.toArray()); // TODO process args
+			Object returnVal = method.invoke(handler, params.toArray()); // TODO process args
+			if(returnVal == null){
+				return null;
+			}else if(returnVal instanceof ModelAndView){
+				return (ModelAndView) returnVal;
+			}else if(returnVal instanceof Map<?,?>){
+				throw new UnsupportedOperationException("Maps aren't supported return types -- yet");
+			} 
+			// TODO handle other return types here
+			throw new IllegalStateException("Unhandled return value: " + returnVal.getClass());
 		} catch (Exception e) {
 			throw new RuntimeException("Failed executing method", e);
 		} 
@@ -44,24 +52,25 @@ public class MethodMappingResolver {
 		
 	}
 	
-	private void addParam(List<Object> params, Class<?> klazz){ // todo include other types that might end up there
-		if(klazz.isAssignableFrom(HttpRequest.class)){
-			// TODO add the request
-		}else if(klazz.isAssignableFrom(HttpResponse.class)){
-			// TODO add the response
-		}else{
-			// at this point, we have no idea what it is. 
-			// try creating a new instance and adding it!
-			try {
-				Object o = klazz.newInstance();
+	private void addParam(List<Object> params, Class<?> klazz, List<Object> intrinsicParameters){ // todo include other types that might end up there
+		for(Object o : intrinsicParameters){
+			if(klazz.isAssignableFrom( o.getClass() )){
 				params.add(o);
-			} catch (InstantiationException e) {
-				throw new RuntimeException("Couldn't create bean of type " + klazz.getSimpleName() + " for handler.", e);
-			} catch (IllegalAccessException e) {
-				throw new RuntimeException("Couldn't create bean of type " + klazz.getSimpleName() + " for handler.", e);
+				return;
 			}
-			
 		}
+		
+		// at this point, we have no idea what it is. 
+		// try creating a new instance and adding it!
+		try {
+			Object o = klazz.newInstance();
+			params.add(o);
+		} catch (InstantiationException e) {
+			throw new RuntimeException("Couldn't create bean of type " + klazz.getSimpleName() + " for handler.", e);
+		} catch (IllegalAccessException e) {
+			throw new RuntimeException("Couldn't create bean of type " + klazz.getSimpleName() + " for handler.", e);
+		}
+			
 	}
 	
 }
