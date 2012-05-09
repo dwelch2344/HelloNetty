@@ -11,9 +11,6 @@ public class HelloNetty {
 	public static void main(String[] args) {
 		ApplicationContext app = new AnnotationConfigApplicationContext("co.davidwelch");
 		
-//		MethodMappingResolver resolver = app.getBean(MethodMappingResolver.class);
-//		resolver.invoke("/users/list");
-
 		// Bind and start to accept incoming connections.
 		ServerBootstrap bootstrap = app.getBean(ServerBootstrap.class);		
 		int port = 8080;

@@ -24,7 +24,7 @@ public class UserController {
 	public ModelAndView buh(HttpRequest request){
 		System.out.println("Users controller called for " + request.getUri());
 		
-		return new ModelAndView("test.fml")
+		return new ModelAndView("test")
 			.add("foo", "bar");
 	}
 }

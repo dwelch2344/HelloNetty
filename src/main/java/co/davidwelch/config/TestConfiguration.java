@@ -14,8 +14,8 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.io.support.ResourcePatternResolver;
 
 import co.davidwelch.cdi.AnnotationProcessor;
-import co.davidwelch.netty.mvc.impl.FreemarkerViewResolver;
-import co.davidwelch.netty.mvc.impl.ViewResolver;
+import co.davidwelch.netty.mvc.ViewResolver;
+import co.davidwelch.netty.mvc.impl.freemarker.FreemarkerDirectoryBasedViewResolver;
 import co.davidwelch.netty.mvc.support.MethodMappingResolver;
 import co.davidwelch.netty.mvc.support.SpringHttpRequestHandler;
 import co.davidwelch.test.netty.HttpServerPipelineFactory;
@@ -46,7 +46,7 @@ public class TestConfiguration {
 	
 	@Bean
 	public ViewResolver getViewResolver() throws IOException{
-		return new FreemarkerViewResolver();
+		return new FreemarkerDirectoryBasedViewResolver("/Users/dwelch/Desktop", null, ".fml");
 	}
 	
 	@Bean

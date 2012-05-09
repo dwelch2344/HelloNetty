@@ -8,7 +8,6 @@ import static org.jboss.netty.handler.codec.http.HttpResponseStatus.CONTINUE;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.List;
@@ -41,7 +40,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import co.davidwelch.netty.mvc.ModelAndView;
 import co.davidwelch.netty.mvc.View;
-import co.davidwelch.netty.mvc.impl.ViewResolver;
+import co.davidwelch.netty.mvc.ViewResolver;
 
 public class SpringHttpRequestHandler extends SimpleChannelUpstreamHandler {
 
@@ -84,7 +83,8 @@ public class SpringHttpRequestHandler extends SimpleChannelUpstreamHandler {
 		HttpRequest request = (HttpRequest) e.getMessage();
 
 		if (is100ContinueExpected(request)) {
-			send100Continue(e);
+			HttpResponse response = new DefaultHttpResponse(HTTP_1_1, CONTINUE);
+			e.getChannel().write(response);
 		}
 
 		if (request.isChunked()) {
@@ -118,16 +118,12 @@ public class SpringHttpRequestHandler extends SimpleChannelUpstreamHandler {
 		// Decide whether to close the connection or not.
 		boolean keepAlive = isKeepAlive(request);
 
-		
-		
-		StringBuilder message = null;
-		
-		
-		HttpResponseStatus responseStatus = HttpResponseStatus.OK;
 		final ChannelBuffer buff = ChannelBuffers.dynamicBuffer();
-		
+		String responseType;
+		HttpResponseStatus responseStatus = HttpResponseStatus.OK;
+		String uri = request.getUri().split("\\?")[0];
 		try{
-			ModelAndView mav = mmResolver.invoke( request.getUri(), Arrays.asList((Object) request) );
+			ModelAndView mav = mmResolver.invoke( uri, Arrays.asList((Object) request) );
 			
 			View view;
 			if( mav.getView() == null ){
@@ -138,6 +134,8 @@ public class SpringHttpRequestHandler extends SimpleChannelUpstreamHandler {
 			}else{
 				view = mav.getView();
 			}
+			Map<String, Object> model = mav.getModel();
+			
 			
 			OutputStream os = new OutputStream() {
 				
@@ -149,34 +147,36 @@ public class SpringHttpRequestHandler extends SimpleChannelUpstreamHandler {
 			
 			QueryStringDecoder queryStringDecoder = new QueryStringDecoder(request.getUri());
 			Map<String, List<String>> params = queryStringDecoder.getParameters();
-			view.render(os);
+			model.put("_PARAMS", params);
+			
+			view.render(os, model);
+			responseType = view.getContentType();
 			os.flush();
 			os.close();
 
 		}catch(MethodMappingNotFoundException ex){
-			message = new StringBuilder();
+			
+			StringBuilder message = new StringBuilder();
 			responseStatus = HttpResponseStatus.NOT_FOUND;
-			message.append("Could not resolve: ").append(request.getUri()).append(NL);
+			responseType = "text/plain; charset=UTF-8";
+			message.append("Could not resolve: ").append(uri).append(NL);
+			buff.writeBytes( ChannelBuffers.copiedBuffer(message, CharsetUtil.UTF_8) );
+			
 		}catch(Exception ex){
 			ex.printStackTrace();
 			responseStatus = HttpResponseStatus.INTERNAL_SERVER_ERROR;
-			message = new StringBuilder();
+			responseType = "text/plain; charset=UTF-8";
+			StringBuilder message = new StringBuilder();
 			message.append("Something went wrong: ").append( ex.getMessage() ).append(NL);
 			message.append("You requested: ").append(request.getUri()).append(NL);
+			buff.writeBytes( ChannelBuffers.copiedBuffer(message, CharsetUtil.UTF_8) );
 		}
-		
-		
 		
 		
 		// Build the response object.
 		HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, responseStatus);
-		response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain; charset=UTF-8");
-		
-		if(message != null){
-			response.setContent(ChannelBuffers.copiedBuffer(message, CharsetUtil.UTF_8));
-		}else{
-			response.setContent(buff);
-		}
+		response.setHeader(HttpHeaders.Names.CONTENT_TYPE, responseType);
+		response.setContent(buff);
 
 		if (keepAlive) {
 			// Add 'Content-Length' header only for a keep-alive connection.
@@ -206,11 +206,6 @@ public class SpringHttpRequestHandler extends SimpleChannelUpstreamHandler {
 		if (!keepAlive) {
 			future.addListener(ChannelFutureListener.CLOSE);
 		}
-	}
-
-	private void send100Continue(MessageEvent e) {
-		HttpResponse response = new DefaultHttpResponse(HTTP_1_1, CONTINUE);
-		e.getChannel().write(response);
 	}
 
 	@Override
