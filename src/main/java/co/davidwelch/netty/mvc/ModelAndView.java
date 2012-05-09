@@ -6,15 +6,20 @@ import java.util.Map;
 public class ModelAndView {
 
 	private final Map<String, Object> model = new HashMap<String, Object>();
-	private final String viewName;
+	private String viewName;
+	private View view;
 	// private View view;
 	
-	public ModelAndView() {
-		this(null);
-	}
+	public ModelAndView() {}
 	
 	public ModelAndView(String view) {
+		this();
 		this.viewName = view;
+	}
+	
+	public ModelAndView(View view) {
+		this();
+		this.view = view;
 	}
 	
 	public ModelAndView add(String name, Object value){
@@ -28,6 +33,10 @@ public class ModelAndView {
 
 	public String getViewName() {
 		return viewName;
+	}
+	
+	public View getView() {
+		return view;
 	}
 	
 }

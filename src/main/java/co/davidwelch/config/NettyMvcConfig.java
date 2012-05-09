@@ -15,8 +15,8 @@ import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.util.ReflectionUtils;
 
 import co.davidwelch.cdi.AnnotationProcessor;
-import co.davidwelch.netty.mvc.Controller;
-import co.davidwelch.netty.mvc.RequestMapping;
+import co.davidwelch.netty.mvc.annotation.Controller;
+import co.davidwelch.netty.mvc.annotation.RequestMapping;
 import co.davidwelch.netty.mvc.support.MethodMapping;
 import co.davidwelch.netty.mvc.support.MethodMappingResolver;
 

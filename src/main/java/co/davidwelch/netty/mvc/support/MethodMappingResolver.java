@@ -18,7 +18,7 @@ public class MethodMappingResolver {
 	
 	public ModelAndView invoke(String path, List<Object> intrinsicParameters){
 		MethodMapping mapping = mappings.get(path);
-		if(mapping == null) throw new IllegalStateException("Unhandled route:" + path);
+		if(mapping == null) throw new MethodMappingNotFoundException("Unhandled route:" + path);
 		
 		Method method = mapping.getMethod();
 		Object handler = mapping.getHandler();

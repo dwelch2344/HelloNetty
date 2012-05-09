@@ -1,4 +1,4 @@
-package co.davidwelch.netty.mvc;
+package co.davidwelch.netty.mvc.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -7,7 +7,8 @@ import java.lang.annotation.Target;
 
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface RequestMapping {
-	String[] value() default {};
-	// RequestMethod[] method() default {};
+public @interface Controller {
+
+//    String[] value() default {};
+//    String tld() default ".custom.tld";
 }

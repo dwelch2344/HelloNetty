@@ -3,9 +3,9 @@ package co.davidwelch.test.netty.controller;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import co.davidwelch.netty.mvc.Controller;
 import co.davidwelch.netty.mvc.ModelAndView;
-import co.davidwelch.netty.mvc.RequestMapping;
+import co.davidwelch.netty.mvc.annotation.Controller;
+import co.davidwelch.netty.mvc.annotation.RequestMapping;
 import co.davidwelch.test.netty.SomeBean;
 
 @Controller
@@ -24,7 +24,7 @@ public class UserController {
 	public ModelAndView buh(HttpRequest request){
 		System.out.println("Users controller called for " + request.getUri());
 		
-		return new ModelAndView("test")
+		return new ModelAndView("test.fml")
 			.add("foo", "bar");
 	}
 }

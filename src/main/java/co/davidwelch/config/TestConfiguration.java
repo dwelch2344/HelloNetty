@@ -1,5 +1,6 @@
 package co.davidwelch.config;
 
+import java.io.IOException;
 import java.util.concurrent.Executors;
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
@@ -13,6 +14,8 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.io.support.ResourcePatternResolver;
 
 import co.davidwelch.cdi.AnnotationProcessor;
+import co.davidwelch.netty.mvc.impl.FreemarkerViewResolver;
+import co.davidwelch.netty.mvc.impl.ViewResolver;
 import co.davidwelch.netty.mvc.support.MethodMappingResolver;
 import co.davidwelch.netty.mvc.support.SpringHttpRequestHandler;
 import co.davidwelch.test.netty.HttpServerPipelineFactory;
@@ -36,9 +39,14 @@ public class TestConfiguration {
 	}
 	
 	@Bean
-	public ChannelHandler getHandler(MethodMappingResolver resolver){
+	public ChannelHandler getHandler(MethodMappingResolver mmResolver, ViewResolver viewResolver){
 		//return new HttpRequestHandler();
-		return new SpringHttpRequestHandler(resolver);
+		return new SpringHttpRequestHandler(mmResolver, viewResolver);
+	}
+	
+	@Bean
+	public ViewResolver getViewResolver() throws IOException{
+		return new FreemarkerViewResolver();
 	}
 	
 	@Bean

@@ -5,13 +5,16 @@ import static org.jboss.netty.handler.codec.http.HttpHeaders.isKeepAlive;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.COOKIE;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.SET_COOKIE;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.CONTINUE;
-import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Logger;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -30,24 +33,41 @@ import org.jboss.netty.handler.codec.http.HttpChunkTrailer;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
+import org.jboss.netty.handler.codec.http.HttpResponseStatus;
+import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.jboss.netty.handler.codec.http.QueryStringDecoder;
 import org.jboss.netty.util.CharsetUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import co.davidwelch.netty.mvc.ModelAndView;
+import co.davidwelch.netty.mvc.View;
+import co.davidwelch.netty.mvc.impl.ViewResolver;
 
 public class SpringHttpRequestHandler extends SimpleChannelUpstreamHandler {
 
+	private final Logger logger = Logger.getLogger( getClass().getSimpleName() );
+	
 	private static String NL = "\n";
 	
 	private boolean readingChunks;
 	
-	private MethodMappingResolver resolver;
+	private final MethodMappingResolver mmResolver;
+	private ViewResolver viewResolver;
+	
+	public SpringHttpRequestHandler(MethodMappingResolver mmResolver) {
+		this(mmResolver, null);
+	}
 	
 	@Autowired
-	public SpringHttpRequestHandler(MethodMappingResolver resolver) {
+	public SpringHttpRequestHandler(MethodMappingResolver mmResolver,
+			ViewResolver viewResolver) {
 		super();
-		this.resolver = resolver;
+		this.mmResolver = mmResolver;
+		this.viewResolver = viewResolver;
+	}
+	
+	public void setViewResolver(ViewResolver viewResolver) {
+		this.viewResolver = viewResolver;
 	}
 
 	@Override
@@ -100,51 +120,63 @@ public class SpringHttpRequestHandler extends SimpleChannelUpstreamHandler {
 
 		
 		
-		StringBuilder message = new StringBuilder();
+		StringBuilder message = null;
 		
 		
+		HttpResponseStatus responseStatus = HttpResponseStatus.OK;
+		final ChannelBuffer buff = ChannelBuffers.dynamicBuffer();
 		
 		try{
-			ModelAndView mav = resolver.invoke( request.getUri(), Arrays.asList((Object) request) );
-			message.append("Worked successfully, we tried to serve up: ")
-				.append( mav.getViewName() )
-				.append( NL );
-			Map<String, Object> model = mav.getModel();
-			for(String key : model.keySet()){
-				message.append("==> ")
-					.append(key)
-					.append(": ")
-					.append( model.get(key) )
-					.append(NL);
+			ModelAndView mav = mmResolver.invoke( request.getUri(), Arrays.asList((Object) request) );
+			
+			View view;
+			if( mav.getView() == null ){
+				if( this.viewResolver == null ) {
+					throw new IllegalStateException("Unable to resolve view; no ViewResolver was supplied");
+				}
+				view = viewResolver.resolve( mav.getViewName() );
+			}else{
+				view = mav.getView();
 			}
 			
-		}catch(Exception ex){
-			ex.printStackTrace();
-			message.append("Something went wrong! You requested: ").append(request.getUri()).append(NL);
-			// Handle parameters
+			OutputStream os = new OutputStream() {
+				
+				@Override
+				public void write(int b) throws IOException {
+					buff.writeByte(b);
+				}
+			};
+			
 			QueryStringDecoder queryStringDecoder = new QueryStringDecoder(request.getUri());
 			Map<String, List<String>> params = queryStringDecoder.getParameters();
-			
-			for(String key : params.keySet()){
-				message.append("==> ").append(key).append(": ");
-				List<String> plist = params.get(key);
-				if(plist != null && !plist.isEmpty()){
-					for(int i = 0; i < plist.size(); i++){
-						message.append( plist.get(i) );
-						if(i + 1 < plist.size()) message.append(", ");
-					}
-				}
-				message.append(NL);
-			}
+			view.render(os);
+			os.flush();
+			os.close();
+
+		}catch(MethodMappingNotFoundException ex){
+			message = new StringBuilder();
+			responseStatus = HttpResponseStatus.NOT_FOUND;
+			message.append("Could not resolve: ").append(request.getUri()).append(NL);
+		}catch(Exception ex){
+			ex.printStackTrace();
+			responseStatus = HttpResponseStatus.INTERNAL_SERVER_ERROR;
+			message = new StringBuilder();
+			message.append("Something went wrong: ").append( ex.getMessage() ).append(NL);
+			message.append("You requested: ").append(request.getUri()).append(NL);
 		}
 		
 		
 		
 		
 		// Build the response object.
-		HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
-		response.setContent(ChannelBuffers.copiedBuffer(message, CharsetUtil.UTF_8));
+		HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, responseStatus);
 		response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain; charset=UTF-8");
+		
+		if(message != null){
+			response.setContent(ChannelBuffers.copiedBuffer(message, CharsetUtil.UTF_8));
+		}else{
+			response.setContent(buff);
+		}
 
 		if (keepAlive) {
 			// Add 'Content-Length' header only for a keep-alive connection.
@@ -184,6 +216,7 @@ public class SpringHttpRequestHandler extends SimpleChannelUpstreamHandler {
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e)
 			throws Exception {
+		logger.warning("Uncaught exception: " + e.getCause().toString());
 		e.getCause().printStackTrace();
 		e.getChannel().close();
 	}
